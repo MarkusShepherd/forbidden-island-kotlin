@@ -32,6 +32,8 @@ interface GamePlayer {
          * at [the time of its creation][newContext].
          */
         fun selectNextAction(): GameAction
+
+        fun finished() = Unit
     }
 }
 
@@ -91,6 +93,9 @@ fun playGame(
         game.process(action)
         numberOfActions++
     }
+
+    gamePlayContext.finished()
+
     logger?.detail("numberOfActions = ${numberOfActions}")
     logger?.info("result = ${game.gameState.result}")
 

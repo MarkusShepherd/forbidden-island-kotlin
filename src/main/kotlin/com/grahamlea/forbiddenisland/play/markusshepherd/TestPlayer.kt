@@ -1,7 +1,6 @@
 package com.grahamlea.forbiddenisland.play.markusshepherd
 
 import com.grahamlea.forbiddenisland.Game
-import com.grahamlea.forbiddenisland.GameAction
 import com.grahamlea.forbiddenisland.play.GamePlayer
 import com.grahamlea.forbiddenisland.play.printGamePlayerTestResult
 import com.grahamlea.forbiddenisland.play.testGamePlayer
@@ -12,7 +11,7 @@ class TestPlayer : GamePlayer {
         Context(game, deterministicRandomForGamePlayerDecisions)
 
     inner class Context(private val game: Game, private val random: Random) : GamePlayer.GamePlayContext {
-        override fun selectNextAction(): GameAction =
+        override fun selectNextAction() =
             game.gameState.availableActions.let {
                 it[random.nextInt(it.size)]
             }
