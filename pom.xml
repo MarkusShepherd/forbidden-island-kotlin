@@ -49,6 +49,11 @@
             <version>3.9.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.chen0040</groupId>
+            <artifactId>java-reinforcement-learning</artifactId>
+            <version>1.0.5</version>
+        </dependency>
     </dependencies>
     <build>
         <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
