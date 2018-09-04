@@ -1,63 +1,81 @@
 package com.grahamlea.forbiddenisland.play.markusshepherd
 
-import com.github.chen0040.rl.learning.qlearn.QLearner
 import com.grahamlea.forbiddenisland.AdventurersWon
 import com.grahamlea.forbiddenisland.Game
 import com.grahamlea.forbiddenisland.GameAction
+import com.grahamlea.forbiddenisland.GameState
+import com.grahamlea.forbiddenisland.immListOf
 import com.grahamlea.forbiddenisland.play.GamePlayer
 import com.grahamlea.forbiddenisland.play.printGamePlayerTestResult
 import com.grahamlea.forbiddenisland.play.testGamePlayer
 import java.util.Random
 
-class QPlayer(val learner: QLearner) : GamePlayer {
+class ForbiddenQLearner(
+    alpha: Double = 0.25,
+    epsilon: Double = 0.2,
+    gamma: Double = 0.99,
+    random: Random = Random()
+) : QLearningAgent<GameState, GameAction>(alpha, epsilon, gamma, random) {
+    override fun getLegalActions(state: GameState) = state.availableActions
+}
+
+class ForbiddenEVSarsa(
+    alpha: Double = 0.25,
+    epsilon: Double = 0.2,
+    gamma: Double = 0.99,
+    random: Random = Random()
+) : EVSarsaAgent<GameState, GameAction>(alpha, epsilon, gamma, random) {
+    override fun getLegalActions(state: GameState) = state.availableActions
+}
+
+class QPlayer(val learner: QLearningAgent<GameState, GameAction>) : GamePlayer {
     override fun newContext(game: Game, deterministicRandomForGamePlayerDecisions: Random) =
-        Context(game, deterministicRandomForGamePlayerDecisions)
+        Context(game)
 
-    inner class Context(private val game: Game, private val random: Random) : GamePlayer.GamePlayContext {
-        var prevState: Int? = null
-        var prevAction: Int? = null
-        var prevAvailableActions: Set<Int>? = null
+    inner class Context(private val game: Game) : GamePlayer.GamePlayContext {
+        var prevState: GameState? = null
+        var prevAction: GameAction? = null
 
-        fun update(state: Int, reward: Double) {
-            if (prevState == null || prevAction == null || prevAvailableActions == null)
+        fun update(state: GameState, reward: Double) {
+            if (prevState == null || prevAction == null)
                 return
 
-            learner.update(prevState!!, prevAction!!, state, prevAvailableActions, reward)
+            learner.update(prevState!!, prevAction!!, reward, state)
         }
 
         override fun selectNextAction(): GameAction {
-            val state = game.gameState.hashCode()
+            if (game.gameState.availableActions.size <= 1)
+                return game.gameState.availableActions.first()
 
-            update(state, 0.0)
+            val state = game.gameState.copy(previousActions = immListOf())
 
-            val availableActions = game.gameState.availableActions.map { actionIds[it]!! }.toSet()
-            val actionValue = learner.selectAction(state, availableActions)
-            val action = actionValue?.index ?: availableActions.toList()[random.nextInt(availableActions.size)]
+            update(state, 1.0)
+
+            val action = learner.action(state)
+                ?.takeIf { it in game.gameState.availableActions }
+                ?: choice(game.gameState.availableActions, learner.random)
+                ?: throw IllegalStateException()
 
             prevState = state
             prevAction = action
-            prevAvailableActions = availableActions
 
-            return GameAction.ALL_POSSIBLE_ACTIONS[action]
+            return action
         }
 
         override fun finished() {
-            assert(game.gameState.result != null)
-            println(game.gameState.result)
-            val reward = if (game.gameState.result == AdventurersWon) +1000.0 else -1000.0
-            update(game.gameState.hashCode(), reward)
+            val state = game.gameState.copy(previousActions = immListOf())
+            assert(state.result != null)
+            val reward = if (state.result == AdventurersWon) +1000.0 else -1000.0
+            update(state, reward)
         }
     }
 
     companion object {
-        private val actionIds = GameAction.ALL_POSSIBLE_ACTIONS
-            .mapIndexed { index, gameAction -> gameAction to index }
-            .toMap()
-
         @JvmStatic
         fun main(args: Array<String>) {
-            println(GameAction.ALL_POSSIBLE_ACTIONS.size)
-            printGamePlayerTestResult(testGamePlayer(QPlayer(QLearner())))
+            val learner = ForbiddenEVSarsa(epsilon = .1)
+            printGamePlayerTestResult(testGamePlayer(QPlayer(learner), gamesPerCategory = 2000))
+            println(learner.qValues.size)
         }
     }
 }
